@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package info;
+
+option go_package = "pb/";
+
+service Info {
+  rpc GetInfo(GetInfoRequest) returns (GetInfoResponse);
+}
+
+message GetInfoRequest {
+  string user_id = 1;
+}
+
+
+message GetInfoResponse {
+  string info = 1;
+}
