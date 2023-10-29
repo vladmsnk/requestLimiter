@@ -27,10 +27,12 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	rClient := client.NewRedisClient(cfg)
-
+	rClient, err := client.NewRedisClient(cfg)
+	if err != nil {
+		panic(err)
+	}
+	log.Println("Redis clients started")
 	lm := limiter.NewLimiter(5, 60, rClient)
-
 	server := grpc.NewServer(grpc.UnaryInterceptor(interceptor.LimiterInterceptor(lm)))
 
 	repo := repository.NewRepository()
@@ -38,7 +40,7 @@ func main() {
 	infoDelivery := delivery.NewDelivery(uc)
 
 	pb.RegisterInfoServer(server, infoDelivery)
-
+	log.Println("gRPC server started")
 	err = server.Serve(lis)
 	if err != nil {
 		panic(err)

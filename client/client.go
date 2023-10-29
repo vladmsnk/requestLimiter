@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"github.com/redis/go-redis/v9"
 	"requestLimiter/config"
 	"time"
@@ -11,13 +12,18 @@ type RedisClient struct {
 	conn *redis.Client
 }
 
-func NewRedisClient(cfg *config.Config) *RedisClient {
+func NewRedisClient(cfg *config.Config) (*RedisClient, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     cfg.Redis.Host,
+		Addr:     fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
 		Password: cfg.Redis.Password,
 		DB:       cfg.Redis.DB,
 	})
-	return &RedisClient{client}
+
+	status := client.Ping(context.Background())
+	if status.Err() != nil {
+		return nil, status.Err()
+	}
+	return &RedisClient{client}, nil
 }
 
 func (r *RedisClient) Add(ctx context.Context, userID string, timeStamp time.Time) error {

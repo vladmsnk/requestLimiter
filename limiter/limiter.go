@@ -3,6 +3,9 @@ package limiter
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"requestLimiter/adapters"
 	"sync"
 	"time"
@@ -25,6 +28,7 @@ func NewLimiter(rate, windowSizeSec int64, r adapters.RedisAdapter) *Repo {
 
 type Limiter interface {
 	Allow(ctx context.Context, userID string, requestTimeStamp time.Time) (bool, error)
+	Limit(ctx context.Context) (bool, error)
 }
 
 func (l *Repo) Allow(ctx context.Context, userID string, requestTimeStamp time.Time) (bool, error) {
@@ -47,5 +51,30 @@ func (l *Repo) Allow(ctx context.Context, userID string, requestTimeStamp time.T
 		return false, err
 	}
 
+	return true, nil
+}
+
+func (l *Repo) Limit(ctx context.Context) (bool, error) {
+	requestTime := time.Now()
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return false, status.Error(codes.Internal, "Failed to extract metadata")
+	}
+
+	// Retrieve the user ID from metadata
+	userIDs := md.Get("user_id")
+	if len(userIDs) == 0 {
+		return false, status.Error(codes.Unauthenticated, "User ID not provided")
+	}
+	userID := userIDs[0]
+
+	allowed, err := l.Allow(ctx, userID, requestTime)
+	if err != nil {
+		return false, err
+	}
+	if !allowed {
+		return false, status.Error(codes.ResourceExhausted, "Too many requests")
+	}
 	return true, nil
 }
